@@ -12,7 +12,7 @@
 %option noyywrap
 
 NUM [0-9]+
-STRING \"[A-Za-z0-9]+\"
+STRING \".*\"
 IDENT [A-Za-z][A-Za-z0-9]*
 BOOL (true|false)
 
@@ -79,18 +79,16 @@ BOOL (true|false)
     return STRING;	
 }
 
-{IDENT} {
-    yylval.string_value = strdup(yytext);
-    return IDENT;	
-}
-
 {BOOL} {
 	yylval.bool_value = string(yytext) == "true";
 	return BOOL;
 }
 
-[ \t] ;
+{IDENT} {
+    yylval.string_value = strdup(yytext);
+    return IDENT;	
+}
 
-[\n]|. { return yytext[0]; }
+[ \t\n] ;
 
 %%

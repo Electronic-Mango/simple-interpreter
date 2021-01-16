@@ -2,16 +2,28 @@
     #include <cstdio>
     #include <iostream>
     #include <cstring>
-	#include <map>
+    #include <map>
+    #include <set>
 
     using namespace std;
 
+    extern FILE* yyin;
     extern int yylex();
     extern int yyparse();
     void yyerror(const char *s);
-	
-	map<string, int> numVariables;
-	map<string, const char *> strVariables;
+
+    set<string> variableNames;
+    map<string, int> numVariables;
+    map<string, const char *> strVariables;
+
+    void handleVariableName(string variableName) {
+        if (variableNames.contains(variableName)) {
+            numVariables.erase(variableName);
+            strVariables.erase(variableName);
+        } else {
+            variableNames.insert(variableName);
+        }
+    }
 %}
 
 %union {
@@ -54,22 +66,13 @@
 %type <string_value> str_expr
 %type <bool_value> bool_expr
 
+%start program
+
 %%
 
-input : /* nic */
-      | input line 
-      ;
-    
-line : '\n'
-     | simple_instruction
-     | num_expr '\n' { cout << $1 << endl; }
-     | str_expr '\n' { cout << $1 << endl; }
-     | bool_expr '\n' { cout << boolalpha << $1 << endl; }
-     ;
-
 num_expr : NUM
-		 | IDENT { $$ = numVariables.contains($1) ? numVariables.at($1) : 0; }
-		 | READINT { cin >> $$; }
+         | IDENT { $$ = numVariables.contains($1) ? numVariables.at($1) : 0; }
+         | READINT { cin >> $$; }
          | MINUS num_expr { $$ = -$2; } // -1+2 jest traktowane jako -(1+2)
          | num_expr PLUS num_expr { $$ = $1 + $3; }
          | num_expr MINUS num_expr { $$ = $1 - $3; }
@@ -79,26 +82,26 @@ num_expr : NUM
          | OPEN_BRACKET num_expr CLOSE_BRACKET  { $$ = $2; }
          | LENGTH OPEN_BRACKET str_expr CLOSE_BRACKET { $$ = string($3).size(); } 
          | POSITION OPEN_BRACKET str_expr COMMA str_expr CLOSE_BRACKET {
-			 auto result = string($3).find($5);
-			 $$ = result == string::npos ? 0 : result + 1;
+             auto result = string($3).find($5);
+             $$ = result == string::npos ? 0 : result + 1;
          }
          ;
 
 str_expr : STRING
          | IDENT { $$ = strVariables.contains($1) ? strVariables.at($1) : ""; }
-		 | READSTR {
-			 string input;
-			 cin >> input;
-			 $$ = input.c_str();
-		 }
+         | READSTR {
+             string input;
+             cin >> input;
+             $$ = strdup(input.c_str());
+         }
          | CONCATENATE OPEN_BRACKET str_expr COMMA str_expr CLOSE_BRACKET { $$ = string($3).append(string($5)).c_str(); }
          | SUBSTRING OPEN_BRACKET str_expr COMMA num_expr COMMA num_expr CLOSE_BRACKET {
-			 auto input = string($3);
-			 auto position = $5 - 1;
-			 auto length = $7;
-			 if (position < 0 || position >= input.size()) $$ = "";
-			 else $$ = input.substr(position, length).c_str();
-		 }
+             auto input = string($3);
+             auto position = $5 - 1;
+             auto length = $7;
+             if (position < 0 || position >= input.size()) $$ = "";
+             else $$ = input.substr(position, length).c_str();
+         }
          ;
 
 bool_expr : BOOL
@@ -128,9 +131,15 @@ instruction : instruction LINE_END simple_instruction
             | simple_instruction
             ;
 
-assign_stat : IDENT ASSIGN num_expr { numVariables.insert_or_assign($1, $3); }
-            | IDENT ASSIGN str_expr { strVariables.insert_or_assign($1, $3); }
-			;
+assign_stat : IDENT ASSIGN num_expr {
+                handleVariableName($1);
+                numVariables.insert_or_assign($1, $3);
+            }
+            | IDENT ASSIGN str_expr {
+                handleVariableName($1);
+                strVariables.insert_or_assign($1, $3);
+            }
+            ;
 
 if_stat : IF bool_expr THEN simple_instruction
         | IF bool_expr THEN simple_instruction ELSE simple_instruction
@@ -138,16 +147,17 @@ if_stat : IF bool_expr THEN simple_instruction
 
 while_stat : WHILE bool_expr DO simple_instruction
            | DO simple_instruction WHILE bool_expr
-		   ;
+           ;
 
 output_stat : PRINT OPEN_BRACKET IDENT CLOSE_BRACKET {
-	              if (strVariables.contains($3)) cout << strVariables.at($3) << endl;
-				  else if (numVariables.contains($3)) cout << numVariables.at($3) << endl;
-				  else cout << "" << endl;
-			  }
+                  if (strVariables.contains($3)) cout << strVariables.at($3) << endl;
+                  else if (numVariables.contains($3)) cout << numVariables.at($3) << endl;
+                  else cout << "" << endl;
+              }
               | PRINT OPEN_BRACKET num_expr CLOSE_BRACKET { cout << $3 << endl; }
               | PRINT OPEN_BRACKET str_expr CLOSE_BRACKET { cout << $3 << endl; }
               | PRINT OPEN_BRACKET bool_expr CLOSE_BRACKET { cout << boolalpha << $3 << endl; }
+              | PRINT OPEN_BRACKET CLOSE_BRACKET { cout << endl; }
               ;
 
 program : instruction
@@ -155,11 +165,22 @@ program : instruction
 
 %%
 
-int main() {
-    yyparse();
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        cout << "Podaj plik to uruchomienia jako argument!" << endl;
+        return -1;
+    }
+    yyin = fopen(argv[1], "r");
+    if (!yyin) {
+        cout << "Nie można otworzyć pliku " << argv[1] << "!" << endl;
+        return -1;
+    }
+    do {
+        yyparse();
+    } while (!feof(yyin));
 }
 
 void yyerror(const char *s) {
-    cout << "Parse error!  Message: " << s << endl;
+    cout << "Błąd parsowania: " << s << endl;
     exit(-1);
 }
