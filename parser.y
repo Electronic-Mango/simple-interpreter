@@ -1,10 +1,9 @@
 %{
     #include <iostream>
-    #include <cstring>
     #include <functional>
-    #include "functors.hh"
-    #include "variables.hh"
-    #include "types.hh"
+    #include "callbacks.h"
+    #include "variables.h"
+    #include "types.h"
 
     using namespace std;
 
@@ -18,9 +17,9 @@
 %}
 
 %code requires {
-    #include "functors.hh"
-    #include "variables.hh"
-    #include "types.hh"
+    #include "callbacks.h"
+    #include "variables.h"
+    #include "types.h"
     using namespace std;
 }
 
@@ -72,11 +71,11 @@
 %%
 
 num_expr : NUM {
-               auto val = $1;
+               number val = $1;
                $$ = ExprEvalCb<number>::create([=](){ return val; });
            }
          | IDENT {
-               auto val = string($1);
+               string val = string($1);
                $$ = ExprEvalCb<number>::create([=](){ return VariableContainer::getVarNum(val); });
                free((char*) $1);
            }
@@ -88,53 +87,59 @@ num_expr : NUM {
                });
            }
          | MINUS num_expr {
-               auto numEval = *$2;
+               valueEval<number> numEval = *$2;
                $$ = ExprEvalCb<number>::create([=](){ return numEval() * -1; });
            }
          | num_expr PLUS num_expr {
-               auto numEval1 = *$1; auto numEval2 = *$3;
+               valueEval<number> numEval1 = *$1;
+			   valueEval<number> numEval2 = *$3;
                $$ = ExprEvalCb<number>::create([=](){ return numEval1() + numEval2(); });
            }
          | num_expr MINUS num_expr {
-               auto numEval1 = *$1; auto numEval2 = *$3;
+               valueEval<number> numEval1 = *$1;
+			   valueEval<number> numEval2 = *$3;
                $$ = ExprEvalCb<number>::create([=](){ return numEval1() - numEval2(); });
            }
          | num_expr MULT num_expr {
-               auto numEval1 = *$1; auto numEval2 = *$3;
+               valueEval<number> numEval1 = *$1;
+			   valueEval<number> numEval2 = *$3;
                $$ = ExprEvalCb<number>::create([=](){ return numEval1() * numEval2(); });
            }
          | num_expr DIV num_expr {
-               auto numEval1 = *$1; auto numEval2 = *$3;
+               valueEval<number> numEval1 = *$1;
+			   valueEval<number> numEval2 = *$3;
                $$ = ExprEvalCb<number>::create([=](){ return numEval1() / numEval2(); });
            }
          | num_expr MODULO num_expr {
-               auto numEval1 = *$1; auto numEval2 = *$3;
+               valueEval<number> numEval1 = *$1;
+			   valueEval<number> numEval2 = *$3;
                $$ = ExprEvalCb<number>::create([=](){ return numEval1() % numEval2(); });
            }
          | OPEN_BRACKET num_expr CLOSE_BRACKET {
-               auto numEval = *$2;
+               valueEval<number> numEval = *$2;
                $$ = ExprEvalCb<number>::create([=](){ return numEval(); });
            }
          | LENGTH OPEN_BRACKET str_expr CLOSE_BRACKET {
-               auto strEval = *$3;
+               valueEval<string> strEval = *$3;
                $$ = ExprEvalCb<number>::create([=](){ return strEval().size(); });
            }
          | POSITION OPEN_BRACKET str_expr COMMA str_expr CLOSE_BRACKET {
-               auto strEval1 = *$3; auto strEval2 = *$5;
+               valueEval<string> strEval1 = *$3;
+			   valueEval<string> strEval2 = *$5;
                $$ = ExprEvalCb<number>::create([=](){
-                   auto result = strEval1().find(strEval2());
+                   size_t result = strEval1().find(strEval2());
                    return result == string::npos ? 0 : result + 1;
                });
            }
          ;
 
 str_expr : STRING {
-           auto val = string($1);
+           string val = string($1);
            $$ = ExprEvalCb<string>::create([=](){ return val; });
            free((char*) $1);
        }
          | IDENT {
-               auto val = string($1);
+               string val = string($1);
                $$ = ExprEvalCb<string>::create([=](){ return VariableContainer::getVarStr(val); });
                free((char*) $1);
            }
@@ -146,7 +151,8 @@ str_expr : STRING {
                });
            }
          | CONCATENATE OPEN_BRACKET str_expr COMMA str_expr CLOSE_BRACKET {
-               auto strEval1 = *$3; auto strEval2 = *$5;
+               valueEval<string> strEval1 = *$3;
+			   valueEval<string> strEval2 = *$5;
                $$ = ExprEvalCb<string>::create([=](){
                   string str1 = strEval1();
                   string str2 = strEval2();
@@ -154,11 +160,13 @@ str_expr : STRING {
                });
            }
          | SUBSTRING OPEN_BRACKET str_expr COMMA num_expr COMMA num_expr CLOSE_BRACKET {
-               auto valEval = *$3; auto posEval = *$5; auto lenEval = *$7;
+               valueEval<string> valEval = *$3;
+			   valueEval<number> posEval = *$5;
+			   valueEval<number> lenEval = *$7;
                $$ = ExprEvalCb<string>::create([=](){
-                   auto input = string(valEval());
-                   auto position = posEval() - 1;
-                   auto length = lenEval();
+                   string input = valEval();
+                   number position = posEval() - 1;
+                   number length = lenEval();
                    if (position < 0 || position >= input.size()) return string();
                    else return input.substr(position, length);
                });
@@ -166,55 +174,65 @@ str_expr : STRING {
          ;
 
 bool_expr : BOOL {
-                auto val = $1;
+                bool val = $1;
                 $$ = ExprEvalCb<bool>::create([=](){ return val; });
             }
           | OPEN_BRACKET bool_expr CLOSE_BRACKET {
-                auto boolEval = *$2;
+                valueEval<bool> boolEval = *$2;
                 $$ = ExprEvalCb<bool>::create([=](){ return boolEval(); });
             }
           | NOT bool_expr {
-                auto boolEval = *$2;
+                valueEval<bool> boolEval = *$2;
                 $$ = ExprEvalCb<bool>::create([=](){ return !(boolEval()); });
             }
           | bool_expr AND bool_expr {
-                auto boolEval1 = *$1; auto boolEval2 = *$3;
+                valueEval<bool> boolEval1 = *$1;
+				valueEval<bool> boolEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return boolEval1() && boolEval2(); });
             }
           | bool_expr OR bool_expr {
-                auto boolEval1 = *$1; auto boolEval2 = *$3;
+                valueEval<bool> boolEval1 = *$1;
+				valueEval<bool> boolEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return boolEval1() || boolEval2(); });
             }
           | num_expr NUM_EQ num_expr {
-                auto numEval1 = *$1; auto numEval2 = *$3;
+                valueEval<number> numEval1 = *$1;
+				valueEval<number> numEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return numEval1() == numEval2(); });
             }
           | num_expr LESS num_expr {
-                auto numEval1 = *$1; auto numEval2 = *$3;
+                valueEval<number> numEval1 = *$1;
+				valueEval<number> numEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return numEval1() < numEval2(); });
             }
           | num_expr LESS_EQ num_expr {
-                auto numEval1 = *$1; auto numEval2 = *$3;
+                valueEval<number> numEval1 = *$1;
+				valueEval<number> numEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return numEval1() <= numEval2(); });
             }
           | num_expr GREATER num_expr {
-                auto numEval1 = *$1; auto numEval2 = *$3;
+                valueEval<number> numEval1 = *$1;
+				valueEval<number> numEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return numEval1() > numEval2(); });
             }
           | num_expr GREATER_EQ num_expr {
-                auto numEval1 = *$1; auto numEval2 = *$3;
+                valueEval<number> numEval1 = *$1;
+				valueEval<number> numEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return numEval1() >= numEval2(); });
             }
           | num_expr NUM_NOT_EQ num_expr {
-                auto numEval1 = *$1; auto numEval2 = *$3;
+                valueEval<number> numEval1 = *$1;
+				valueEval<number> numEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return numEval1() != numEval2(); });
             }
           | str_expr STR_EQ str_expr {
-                auto strEval1 = *$1; auto strEval2 = *$3;
+                valueEval<string> strEval1 = *$1;
+				valueEval<string> strEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return strEval1() == strEval2(); });
             }
           | str_expr STR_NOT_EQ str_expr {
-                auto strEval1 = *$1; auto strEval2 = *$3;
+                valueEval<string> strEval1 = *$1;
+				valueEval<string> strEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return strEval1() != strEval2(); });
             }
           ;
@@ -267,6 +285,7 @@ int main(int argc, char* argv[]) {
     do {
         yyparse();
     } while (!feof(yyin));
+    Callback::clearExtent();
 }
 
 void yyerror(cstring error) {

@@ -3,7 +3,7 @@
 #include <iostream>
 #include <map>
 #include <set>
-#include "types.hh"
+#include "types.h"
 
 using namespace std;
 
