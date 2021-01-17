@@ -10,37 +10,21 @@ using namespace std;
 
 class Callback {
 public:
-    virtual ~Callback() {}
+    virtual ~Callback() { }
 
     static void clearExtent() {
-        for (auto cb = callbacks.begin(); cb != callbacks.end(); ++cb) {
+        for (auto cb = _callbacks.begin(); cb != _callbacks.end(); ++cb) {
             delete *cb;
         }
-        callbacks.clear();
+        _callbacks.clear();
     }
 
     static void addToExtent(Callback* cb) {
-        callbacks.insert(cb);
+        _callbacks.insert(cb);
     }
 
 private:
-    inline static set<Callback*> callbacks;
-};
-
-class ExitCb : public Callback {
-public:
-    static action* create() {
-        auto callback = new ExitCb();
-        addToExtent(callback);
-        return &(callback->_action);
-    }
-
-private:
-    ExitCb() {
-        _action = [](){ exit(0); };
-    }
-
-    action _action;
+    inline static set<Callback*> _callbacks;
 };
 
 template <class T>
@@ -58,85 +42,64 @@ private:
     valueEval<T> _evaluator;
 };
 
-template <class T>
-class PrintExprCb : public Callback {
+class CbAction : Callback {
 public:
-    static action* create(valueEval<T>* value) {
-        auto callback = new PrintExprCb<T>(value);
-        addToExtent(callback);
-        return &(callback->_action);
-    }
+    virtual ~CbAction() { }
+	
+	template<class T, class... Args>
+	static action* create(Args&& ... args) {
+		auto callback = new T(forward<Args>(args)...);
+		addToExtent(callback);
+		return &(callback->_action);
+	}
 
-private:
+protected:
+	action _action;
+};
+
+class ExitCb : public CbAction {
+public:
+    ExitCb() {
+        _action = [](){ exit(0); };
+    }
+};
+
+template <class T>
+class PrintExprCb : public CbAction {
+public:
     PrintExprCb(valueEval<T>* value) {
         _action = [value](){ cout << (*value)() << endl; };
     }
-
-    action _action;
 };
 
-class PrintVarCb : public Callback {
+class PrintVarCb : public CbAction {
 public:
-    static action* create(string name) {
-        auto callback = new PrintVarCb(name);
-        addToExtent(callback);
-        return &(callback->_action);
-    }
-
-private:
     PrintVarCb(string name) {
         _action = [name](){
             VariableContainer::printVar(name);
         };
     }
-
-    action _action;
 };
 
-class PrintNewLineCb : public Callback {
+class PrintNewLineCb : public CbAction {
 public:
-    static action* create() {
-        auto callback = new PrintNewLineCb();
-        addToExtent(callback);
-        return &(callback->_action);
-    }
-
-private:
     PrintNewLineCb() {
         _action = [](){ cout << endl; };
     }
-
-    action _action;
 };
 
 template <class T>
-class AssignVarCb : public Callback {
+class AssignVarCb : public CbAction {
 public:
-    static action* create(string varName, valueEval<T>* varValue) {
-        auto callback = new AssignVarCb<T>(varName, varValue);
-        addToExtent(callback);
-        return &(callback->_action);
-    }
-
-private:
     AssignVarCb(string varName, valueEval<T>* varValue) {
         _action = [varName, varValue]() {
             VariableContainer::addVar(varName, (*varValue)());
         };
     }
-
-    action _action;
 };
 
-class IfCb : public Callback {
+class IfCb : public CbAction {
 public:
-    static action* create(valueEval<bool>* condition, action* trueFunction, action* falseFunction) {
-        auto callback = new IfCb(condition, trueFunction, falseFunction);
-        addToExtent(callback);
-        return &(callback->_action);
-    }
-
-private:
     IfCb(valueEval<bool>* condition, action* trueFunction, action* falseFunction) {
         _action = [condition, trueFunction, falseFunction]() {
             if ((*condition)()) {
@@ -146,19 +109,10 @@ private:
             }
         };
     }
-
-    action _action;
 };
 
-class WhileCb : public Callback {
+class WhileCb : public CbAction {
 public:
-    static action* create(valueEval<bool>* condition, action* instruction) {
-        auto callback = new WhileCb(condition, instruction);
-        addToExtent(callback);
-        return &(callback->_action);
-    }
-
-private:
     WhileCb(valueEval<bool>* condition, action* instruction) {
         _action = [condition, instruction]() {
             while((*condition)()) {
@@ -166,19 +120,10 @@ private:
             }
         };
     }
-
-    action _action;
 };
 
-class DoWhileCb : public Callback {
+class DoWhileCb : public CbAction {
 public:
-    static action* create(action* instruction, valueEval<bool>* condition) {
-        auto callback = new DoWhileCb(instruction, condition);
-        addToExtent(callback);
-        return &(callback->_action);
-    }
-
-private:
     DoWhileCb(action* instruction, valueEval<bool>* condition) {
         _action = [instruction, condition]() {
             do {
@@ -186,25 +131,14 @@ private:
             } while ((*condition)());
         };
     }
-
-    action _action;
 };
 
-class CompoundInstrCb : public Callback {
+class CompoundInstrCb : public CbAction {
 public:
-    static action* create(action* firstAction, action* secondAction) {
-        auto callback = new CompoundInstrCb(firstAction, secondAction);
-        addToExtent(callback);
-        return &(callback->_action);
-    }
-
-private:
     CompoundInstrCb(action* firstAction, action* secondAction) {
         _action = [firstAction, secondAction]() {
             (*firstAction)();
             (*secondAction)();
         };
     }
-
-    action _action;
 };

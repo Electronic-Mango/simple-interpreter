@@ -11,26 +11,26 @@ class VariableContainer {
 public:
     static void addVar(string variableName, number value) {
         storeVariableName(variableName);
-        numVariables.insert_or_assign(variableName, value);
+        _numVariables.insert_or_assign(variableName, value);
     }
 
     static void addVar(string variableName, string value) {
         storeVariableName(variableName);
-        strVariables.insert_or_assign(variableName, value);
+        _strVariables.insert_or_assign(variableName, value);
     }
 
     static number getVarNum(string variableName) {
-        return numVariables.contains(variableName) ? numVariables.at(variableName) : 0;
+        return _numVariables.contains(variableName) ? _numVariables.at(variableName) : 0;
     }
 
     static string getVarStr(string variableName) {
-        return strVariables.contains(variableName) ? strVariables.at(variableName) : "";
+        return _strVariables.contains(variableName) ? _strVariables.at(variableName) : "";
     }
 
     static void printVar(string variableName) {
-        if (strVariables.contains(variableName)) {
+        if (_strVariables.contains(variableName)) {
             cout << getVarStr(variableName) << endl;
-        } else if (numVariables.contains(variableName)) {
+        } else if (_numVariables.contains(variableName)) {
             cout << getVarNum(variableName) << endl;
         } else {
             cout << "" << endl;
@@ -39,15 +39,15 @@ public:
 
 private:
     static void storeVariableName(string variableName) {
-        if (variableNames.contains(variableName)) {
-            numVariables.erase(variableName);
-            strVariables.erase(variableName);
+        if (_variableNames.contains(variableName)) {
+            _numVariables.erase(variableName);
+            _strVariables.erase(variableName);
         } else {
-            variableNames.insert(variableName);
+            _variableNames.insert(variableName);
         }
     }
 
-    inline static set<string> variableNames;
-    inline static map<string, number> numVariables;
-    inline static map<string, string> strVariables;
+    inline static set<string> _variableNames;
+    inline static map<string, number> _numVariables;
+    inline static map<string, string> _strVariables;
 };

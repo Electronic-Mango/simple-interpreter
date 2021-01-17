@@ -10,7 +10,6 @@
     extern FILE* yyin;
     extern int yylex();
     extern int yyparse();
-
     extern int lineNumber;
 
     void yyerror(cstring error);
@@ -242,29 +241,29 @@ simple_instruction : BEGIN_INSTRUCTION instruction END_INSTRUCTION { $$ = $2; }
                    | if_stat { $$ = $1; }
                    | while_stat { $$ = $1; }
                    | output_stat { $$ = $1; }
-                   | EXIT { $$ = ExitCb::create(); }
+                   | EXIT { $$ = CbAction::create<ExitCb>(); }
                    ;
 
-instruction : instruction simple_instruction LINE_END { $$ = CompoundInstrCb::create($1, $2); }
+instruction : instruction simple_instruction LINE_END { $$ = CbAction::create<CompoundInstrCb>($1, $2); }
             | simple_instruction LINE_END { $$ = $1; }
             ;
 
-assign_stat : IDENT ASSIGN num_expr { $$ = AssignVarCb<number>::create($1, $3); free((char*) $1); }
-            | IDENT ASSIGN str_expr { $$ = AssignVarCb<string>::create($1, $3); free((char*) $1); }
+assign_stat : IDENT ASSIGN num_expr { $$ = CbAction::create<AssignVarCb<number>>($1, $3); free((char*) $1); }
+            | IDENT ASSIGN str_expr { $$ = CbAction::create<AssignVarCb<string>>($1, $3); free((char*) $1); }
             ;
 
-if_stat : IF bool_expr THEN simple_instruction { $$ = IfCb::create($2, $4, nullptr); }
-        | IF bool_expr THEN simple_instruction ELSE simple_instruction { $$ = IfCb::create($2, $4, $6); }
+if_stat : IF bool_expr THEN simple_instruction { $$ = CbAction::create<IfCb>($2, $4, nullptr); }
+        | IF bool_expr THEN simple_instruction ELSE simple_instruction { $$ = CbAction::create<IfCb>($2, $4, $6); }
         ;
 
-while_stat : WHILE bool_expr DO simple_instruction { $$ = WhileCb::create($2, $4); }
-           | DO simple_instruction WHILE bool_expr { $$ = DoWhileCb::create($2, $4); }
+while_stat : WHILE bool_expr DO simple_instruction { $$ = CbAction::create<WhileCb>($2, $4); }
+           | DO simple_instruction WHILE bool_expr { $$ = CbAction::create<DoWhileCb>($2, $4); }
            ;
 
-output_stat : PRINT OPEN_BRACKET IDENT CLOSE_BRACKET { $$ = PrintVarCb::create($3); free((char*) $3); }
-            | PRINT OPEN_BRACKET str_expr CLOSE_BRACKET { $$ = PrintExprCb<string>::create($3); }
-            | PRINT OPEN_BRACKET num_expr CLOSE_BRACKET { $$ = PrintExprCb<number>::create($3); }
-            | PRINT OPEN_BRACKET CLOSE_BRACKET { $$ = PrintNewLineCb::create(); }
+output_stat : PRINT OPEN_BRACKET IDENT CLOSE_BRACKET { $$ = CbAction::create<PrintVarCb>($3); free((char*) $3); }
+            | PRINT OPEN_BRACKET str_expr CLOSE_BRACKET { $$ = CbAction::create<PrintExprCb<string>>($3); }
+            | PRINT OPEN_BRACKET num_expr CLOSE_BRACKET { $$ = CbAction::create<PrintExprCb<number>>($3); }
+            | PRINT OPEN_BRACKET CLOSE_BRACKET { $$ = CbAction::create<PrintNewLineCb>(); }
             ;
 
 program : instruction { (*$1)(); }
@@ -290,6 +289,6 @@ int main(int argc, char* argv[]) {
 
 void yyerror(cstring error) {
     cout << "Błąd parsowania: " << error << endl;
-    cout << "W linii: " << lineNumber + 1 << endl;
+    cout << "W linii: " << lineNumber << endl;
     exit(-1);
 }
