@@ -32,7 +32,7 @@
     action* statement;
 }
 
-%token <integer_value> NUM 
+%token <integer_value> NUM
 %token <string_value> STRING
 %token <string_value> IDENT
 %token <bool_value> BOOL
@@ -134,35 +134,35 @@ simple_instruction : BEGIN_INSTRUCTION instruction END_INSTRUCTION { $$ = $2; }
                    | EXIT { return 0; }
                    ;
 
-instruction : instruction LINE_END simple_instruction { $$ = CompoundInstrHandler::prepareCompoundInstrHandler($1, $3); }
+instruction : instruction LINE_END simple_instruction { $$ = CompoundInstrCallback::create($1, $3); }
             | simple_instruction { $$ = $1; }
             ;
 
-assign_stat : IDENT ASSIGN num_expr { $$ = Assigner<number>::prepareAssigner($1, $3); }
-            | IDENT ASSIGN str_expr { $$ = Assigner<cstring>::prepareAssigner($1, $3); }
+assign_stat : IDENT ASSIGN num_expr { $$ = AssignVarCallback<number>::create($1, $3); }
+            | IDENT ASSIGN str_expr { $$ = AssignVarCallback<cstring>::create($1, $3); }
             ;
 
-if_stat : IF bool_expr THEN simple_instruction { $$ = IfHandler::prepareIfHandler($2, $4, nullptr); }
+if_stat : IF bool_expr THEN simple_instruction { $$ = IfCallback::create($2, $4, nullptr); }
         | IF bool_expr THEN simple_instruction ELSE simple_instruction {
-              $$ = IfHandler::prepareIfHandler($2, $4, $6);
+              $$ = IfCallback::create($2, $4, $6);
           }
         ;
 
-while_stat : WHILE bool_expr DO simple_instruction
-           | DO simple_instruction WHILE bool_expr
+while_stat : WHILE bool_expr DO simple_instruction { $$ = WhileCallback::create($2, $4); }
+           | DO simple_instruction WHILE bool_expr { $$ = DoWhileCallback::create($2, $4); }
            ;
 
 output_stat : PRINT OPEN_BRACKET IDENT CLOSE_BRACKET {
-                  $$ = VariablePrinter::prepareVarPrinterFuncPtr($3);
+                  $$ = PrintVarCallback::create($3);
               }
             | PRINT OPEN_BRACKET num_expr CLOSE_BRACKET {
-                  $$ = ExprPrinter<number>::preparePrinterFuncPtr($3);
+                  $$ = PrintExprCallback<number>::create($3);
               }
             | PRINT OPEN_BRACKET str_expr CLOSE_BRACKET {
-                  $$ = ExprPrinter<string>::preparePrinterFuncPtr($3);
+                  $$ = PrintExprCallback<string>::create($3);
               }
             | PRINT OPEN_BRACKET CLOSE_BRACKET {
-                  $$ = ExprPrinter<string>::preparePrinterFuncPtr("");
+                  $$ = PrintExprCallback<string>::create("");
               }
             ;
 

@@ -66,25 +66,25 @@ BOOL (true|false)
 "exit" { return EXIT; }
 
 {NUM} {
-	yylval.integer_value = atoi(yytext);
-	return NUM;
+    yylval.integer_value = atoi(yytext);
+    return NUM;
 }
 
 {STRING} {
-	string input = string(yytext);
-	string content = input.substr(1, input.size() - 2);
+    string input = string(yytext);
+    string content = input.substr(1, input.size() - 2);
     yylval.string_value = strdup(content.c_str());
-    return STRING;	
+    return STRING;
 }
 
 {BOOL} {
-	yylval.bool_value = string(yytext) == "true";
-	return BOOL;
+    yylval.bool_value = string(yytext) == "true";
+    return BOOL;
 }
 
 {IDENT} {
     yylval.string_value = strdup(yytext);
-    return IDENT;	
+    return IDENT;
 }
 
 [ \t\n] ;

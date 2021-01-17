@@ -60,66 +60,66 @@ private:
 };
 
 template <class T>
-class ExprPrinter {
+class PrintExprCallback {
 public:
-    static action* preparePrinterFuncPtr(T value) {
-        auto printer = new ExprPrinter<T>(value);
-        return &(printer->_printerFunction);
+    static action* create(T value) {
+        auto printer = new PrintExprCallback<T>(value);
+        return &(printer->_action);
     }
 
 private:
-    ExprPrinter(T value) {
-        _printerFunction = [value](){ cout << value << endl; };
+    PrintExprCallback(T value) {
+        _action = [value](){ cout << value << endl; };
     }
 
-    action _printerFunction;
+    action _action;
 };
 
-class VariablePrinter {
+class PrintVarCallback {
 public:
-    static action* prepareVarPrinterFuncPtr(string name) {
-        auto printer = new VariablePrinter(name);
-        return &(printer->_printerFunction);
+    static action* create(string name) {
+        auto printer = new PrintVarCallback(name);
+        return &(printer->_action);
     }
 
 private:
-    VariablePrinter(string name) {
-        _printerFunction = [name](){
+    PrintVarCallback(string name) {
+        _action = [name](){
             VariableContainer::printVar(name);
         };
     }
 
-    action _printerFunction;
+    action _action;
 };
 
 template <class T>
-class Assigner {
+class AssignVarCallback {
 public:
-    static action* prepareAssigner(string varName, T varValue) {
-        auto assigner = new Assigner<T>(varName, varValue);
-        return &(assigner->_variableAssigningFunction);
+    static action* create(string varName, T varValue) {
+        auto assigner = new AssignVarCallback<T>(varName, varValue);
+        return &(assigner->_action);
     }
 
 private:
-    Assigner(string varName, T varValue) {
-        _variableAssigningFunction = [varName, varValue]() {
+    AssignVarCallback(string varName, T varValue) {
+        _action = [varName, varValue]() {
             VariableContainer::addVar(varName, varValue);
         };
     }
 
-    action _variableAssigningFunction;
+    action _action;
 };
 
-class IfHandler {
+class IfCallback {
 public:
-    static action* prepareIfHandler(bool condition, action* trueFunction, action* falseFunction) {
-        auto handler = new IfHandler(condition, trueFunction, falseFunction);
-        return &(handler->_ifFunction);
+    static action* create(bool condition, action* trueFunction, action* falseFunction) {
+        auto handler = new IfCallback(condition, trueFunction, falseFunction);
+        return &(handler->_action);
     }
 
 private:
-    IfHandler(bool condition, action* trueFunction, action* falseFunction) {
-        _ifFunction = [condition, trueFunction, falseFunction]() {
+    IfCallback(bool condition, action* trueFunction, action* falseFunction) {
+        _action = [condition, trueFunction, falseFunction]() {
             if (condition) {
                 (*trueFunction)();
             } else {
@@ -128,23 +128,61 @@ private:
         };
     }
 
-    action _ifFunction;
+    action _action;
 };
 
-class CompoundInstrHandler {
+class WhileCallback {
 public:
-    static action* prepareCompoundInstrHandler(action* firstAction, action* secondAction) {
-        auto handler = new CompoundInstrHandler(firstAction, secondAction);
-        return &(handler->_compoundAction);
+    static action* create(bool condition, action* instruction) {
+        auto handler = new WhileCallback(condition, instruction);
+        return &(handler->_action);
     }
 
 private:
-    CompoundInstrHandler(action* firstAction, action* secondAction) {
-        _compoundAction = [firstAction, secondAction]() {
+    WhileCallback(bool condition, action* instruction) {
+        _action = [condition, instruction]() {
+            while(condition) {
+                (*instruction)();
+            }
+        };
+    }
+
+    action _action;
+};
+
+class DoWhileCallback {
+public:
+    static action* create(action* instruction, bool condition) {
+        auto handler = new DoWhileCallback(instruction, condition);
+        return &(handler->_action);
+    }
+
+private:
+    DoWhileCallback(action* instruction, bool condition) {
+        _action = [instruction, condition]() {
+            do {
+                (*instruction)();
+            } while (condition);
+        };
+    }
+
+    action _action;
+};
+
+class CompoundInstrCallback {
+public:
+    static action* create(action* firstAction, action* secondAction) {
+        auto handler = new CompoundInstrCallback(firstAction, secondAction);
+        return &(handler->_action);
+    }
+
+private:
+    CompoundInstrCallback(action* firstAction, action* secondAction) {
+        _action = [firstAction, secondAction]() {
             (*firstAction)();
             (*secondAction)();
         };
     }
 
-    action _compoundAction;
+    action _action;
 };
