@@ -13,6 +13,7 @@ using namespace std;
 typedef signed long int number;
 typedef const char* cstring;
 typedef function<void()> action;
+template <class T> using valueEval = function<T()>;
 
 class VariableContainer {
 public:
@@ -60,11 +61,25 @@ private:
 };
 
 template <class T>
+class ExprEvalCallback {
+public:
+    static valueEval<T>* create(valueEval<T> evaluator) {
+        auto callback = new ExprEvalCallback<T>(evaluator);
+        return &(callback->_evaluator);
+    }
+
+private:
+    ExprEvalCallback(valueEval<T> evaluator) : _evaluator(evaluator) { }
+
+    valueEval<T> _evaluator;
+};
+
+template <class T>
 class PrintExprCallback {
 public:
     static action* create(T value) {
-        auto printer = new PrintExprCallback<T>(value);
-        return &(printer->_action);
+        auto callback = new PrintExprCallback<T>(value);
+        return &(callback->_action);
     }
 
 private:
@@ -78,8 +93,8 @@ private:
 class PrintVarCallback {
 public:
     static action* create(string name) {
-        auto printer = new PrintVarCallback(name);
-        return &(printer->_action);
+        auto callback = new PrintVarCallback(name);
+        return &(callback->_action);
     }
 
 private:
@@ -96,8 +111,8 @@ template <class T>
 class AssignVarCallback {
 public:
     static action* create(string varName, T varValue) {
-        auto assigner = new AssignVarCallback<T>(varName, varValue);
-        return &(assigner->_action);
+        auto callback = new AssignVarCallback<T>(varName, varValue);
+        return &(callback->_action);
     }
 
 private:
@@ -113,8 +128,8 @@ private:
 class IfCallback {
 public:
     static action* create(bool condition, action* trueFunction, action* falseFunction) {
-        auto handler = new IfCallback(condition, trueFunction, falseFunction);
-        return &(handler->_action);
+        auto callback = new IfCallback(condition, trueFunction, falseFunction);
+        return &(callback->_action);
     }
 
 private:
@@ -134,8 +149,8 @@ private:
 class WhileCallback {
 public:
     static action* create(bool condition, action* instruction) {
-        auto handler = new WhileCallback(condition, instruction);
-        return &(handler->_action);
+        auto callback = new WhileCallback(condition, instruction);
+        return &(callback->_action);
     }
 
 private:
@@ -153,8 +168,8 @@ private:
 class DoWhileCallback {
 public:
     static action* create(action* instruction, bool condition) {
-        auto handler = new DoWhileCallback(instruction, condition);
-        return &(handler->_action);
+        auto callback = new DoWhileCallback(instruction, condition);
+        return &(callback->_action);
     }
 
 private:
@@ -172,8 +187,8 @@ private:
 class CompoundInstrCallback {
 public:
     static action* create(action* firstAction, action* secondAction) {
-        auto handler = new CompoundInstrCallback(firstAction, secondAction);
-        return &(handler->_action);
+        auto callback = new CompoundInstrCallback(firstAction, secondAction);
+        return &(callback->_action);
     }
 
 private:
