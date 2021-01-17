@@ -6,157 +6,23 @@
     #include <set>
     #include <functional>
     #include <memory>
+    #include "functors.hh"
 
     using namespace std;
-
-	typedef signed long int number;
-	typedef const char* cstring;
-    typedef function<void()> action;
 
     extern FILE* yyin;
     extern int yylex();
     extern int yyparse();
     void yyerror(cstring s);
-
-    set<string> variableNames;
-    map<string, number> numVariables;
-    map<string, cstring> strVariables;
-
-    void handleVariableName(string variableName) {
-        if (variableNames.contains(variableName)) {
-            numVariables.erase(variableName);
-            strVariables.erase(variableName);
-        } else {
-            variableNames.insert(variableName);
-        }
-    }
-
-    template <class T>
-    struct ExprPrinter {
-        T _value;
-        action _printerFunction;
-
-        static action* preparePrinterFuncPtr(T value) {
-            auto printer = new ExprPrinter<T>(value);
-            return printer->printerFunctionPtr();
-        }
-
-        ExprPrinter(T value) : _value(value) {
-            _printerFunction = [this](){ cout << _value << endl; };
-        }
-
-        action* printerFunctionPtr() {
-            return &_printerFunction;
-        }
-    };
-
-    struct VariablePrinter {
-        string _name;
-        action _printerFunction;
-
-        static action* prepareVarPrinterFuncPtr(string name) {
-            auto printer = new VariablePrinter(name);
-            return printer->printerFunctionPtr();
-        }
-
-        VariablePrinter(string name) : _name(name) {
-            _printerFunction = [this](){
-                if (strVariables.contains(_name)) {
-                    cout << strVariables.at(_name) << endl;
-                } else if (numVariables.contains(_name)) {
-                    cout << numVariables.at(_name) << endl;
-                } else {
-                    cout << "" << endl;
-                }
-            };
-        }
-
-        action* printerFunctionPtr() {
-            return &_printerFunction;
-        }
-    };
-    
-    template <class T>
-    struct Assigner {
-        string _varName;
-        T _varValue;
-        map<string, T>* _varCollection;
-        action _variableAssigningFunction;
-
-        static action* prepareAssigner(string varName, T varValue, map<string, T>* varCollection) {
-            auto assigner = new Assigner<T>(varName, varValue, varCollection);
-            return assigner->variableAssigningFunctionPtr();
-        }
-        
-        Assigner(string varName, T varValue, map<string, T>* varCollection) : _varName(varName), _varValue(varValue), _varCollection(varCollection) {
-            _variableAssigningFunction = [this]() {
-                handleVariableName(_varName);
-                _varCollection->insert_or_assign(_varName, _varValue);
-            };
-        }
-
-        action* variableAssigningFunctionPtr() {
-            return &_variableAssigningFunction;
-        }
-        
-    };
-    
-    struct IfHandler {
-        bool _condition;
-        action* _trueFunction;
-        action* _falseFunction;
-        action _ifFunction;
-
-        static action* prepareIfHandler(bool condition, action* trueFunction, action* falseFunction) {
-            auto handler = new IfHandler(condition, trueFunction, falseFunction);
-            return handler->ifFunctionPtr();
-        }
-        
-        IfHandler(bool condition, action* trueFunction, action* falseFunction) : _condition(condition), _trueFunction(trueFunction), _falseFunction(falseFunction) {
-            _ifFunction = [this]() {
-                if (_condition) {
-                    (*_trueFunction)();
-                } else {
-                    if (_falseFunction != nullptr) (*_falseFunction)();
-                }
-            };
-        }
-
-        action* ifFunctionPtr() {
-            return &_ifFunction;
-        }
-    };
-    
-    struct CompoundInstrHandler {
-        action* _firstAction;
-        action* _secondAction;
-        action _compoundAction;
-
-        static action* prepareCompoundInstrHandler(action* firstAction, action* secondAction) {
-            auto handler = new CompoundInstrHandler(firstAction, secondAction);
-            return handler->compoundActionPtr();
-        }
-        
-        CompoundInstrHandler(action* firstAction, action* secondAction) : _firstAction(firstAction), _secondAction(secondAction) {
-            _compoundAction = [this]() {
-                (*_firstAction)();
-                (*_secondAction)();
-            };
-        }
-
-        action* compoundActionPtr() {
-            return &_compoundAction;
-        }
-    };
-	
 %}
 
 %code requires {
-	#include <functional>
-	typedef signed long int number;
-	typedef const char* cstring;
+    #include <functional>
+    #include "functors.hh"
+    typedef signed long int number;
+    typedef const char* cstring;
     typedef function<void()> action;
-	using namespace std;
+    using namespace std;
 }
 
 %union {
@@ -212,7 +78,7 @@
 %%
 
 num_expr : NUM
-         | IDENT { $$ = numVariables.contains($1) ? numVariables.at($1) : 0; }
+         | IDENT { $$ = VariableContainer::getVarNum($1); }
          | READINT { cin >> $$; }
          | MINUS num_expr { $$ = -$2; } // -1+2 jest traktowane jako -(1+2)
          | num_expr PLUS num_expr { $$ = $1 + $3; }
@@ -221,7 +87,7 @@ num_expr : NUM
          | num_expr DIV num_expr { $$ = $1 / $3; }
          | num_expr MODULO num_expr { $$ = $1 % $3; }
          | OPEN_BRACKET num_expr CLOSE_BRACKET  { $$ = $2; }
-         | LENGTH OPEN_BRACKET str_expr CLOSE_BRACKET { $$ = string($3).size(); } 
+         | LENGTH OPEN_BRACKET str_expr CLOSE_BRACKET { $$ = string($3).size(); }
          | POSITION OPEN_BRACKET str_expr COMMA str_expr CLOSE_BRACKET {
                auto result = string($3).find($5);
                $$ = result == string::npos ? 0 : result + 1;
@@ -229,7 +95,7 @@ num_expr : NUM
          ;
 
 str_expr : STRING
-         | IDENT { $$ = strVariables.contains($1) ? strVariables.at($1) : ""; }
+         | IDENT { $$ = VariableContainer::getVarStr($1); }
          | READSTR {
                string input;
                cin >> input;
@@ -272,8 +138,8 @@ instruction : instruction LINE_END simple_instruction { $$ = CompoundInstrHandle
             | simple_instruction { $$ = $1; }
             ;
 
-assign_stat : IDENT ASSIGN num_expr { $$ = Assigner<number>::prepareAssigner($1, $3, &numVariables); }
-            | IDENT ASSIGN str_expr { $$ = Assigner<cstring>::prepareAssigner($1, $3, &strVariables); }
+assign_stat : IDENT ASSIGN num_expr { $$ = Assigner<number>::prepareAssigner($1, $3); }
+            | IDENT ASSIGN str_expr { $$ = Assigner<cstring>::prepareAssigner($1, $3); }
             ;
 
 if_stat : IF bool_expr THEN simple_instruction { $$ = IfHandler::prepareIfHandler($2, $4, nullptr); }
