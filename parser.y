@@ -76,8 +76,9 @@ num_expr : NUM {
                $$ = ExprEvalCb<number>::create([=](){ return val; });
            }
          | IDENT {
-               auto val = $1;
+               auto val = string($1);
                $$ = ExprEvalCb<number>::create([=](){ return VariableContainer::getVarNum(val); });
+               free((char*) $1);
            }
          | READINT {
                $$ = ExprEvalCb<number>::create([=](){
@@ -130,10 +131,12 @@ num_expr : NUM {
 str_expr : STRING {
            auto val = string($1);
            $$ = ExprEvalCb<string>::create([=](){ return val; });
+           free((char*) $1);
        }
          | IDENT {
                auto val = string($1);
                $$ = ExprEvalCb<string>::create([=](){ return VariableContainer::getVarStr(val); });
+               free((char*) $1);
            }
          | READSTR {
                $$ = ExprEvalCb<string>::create([=](){
@@ -228,8 +231,8 @@ instruction : instruction simple_instruction LINE_END { $$ = CompoundInstrCb::cr
             | simple_instruction LINE_END { $$ = $1; }
             ;
 
-assign_stat : IDENT ASSIGN num_expr { $$ = AssignVarCb<number>::create($1, $3); }
-            | IDENT ASSIGN str_expr { $$ = AssignVarCb<string>::create($1, $3); }
+assign_stat : IDENT ASSIGN num_expr { $$ = AssignVarCb<number>::create($1, $3); free((char*) $1); }
+            | IDENT ASSIGN str_expr { $$ = AssignVarCb<string>::create($1, $3); free((char*) $1); }
             ;
 
 if_stat : IF bool_expr THEN simple_instruction { $$ = IfCb::create($2, $4, nullptr); }
@@ -240,7 +243,7 @@ while_stat : WHILE bool_expr DO simple_instruction { $$ = WhileCb::create($2, $4
            | DO simple_instruction WHILE bool_expr { $$ = DoWhileCb::create($2, $4); }
            ;
 
-output_stat : PRINT OPEN_BRACKET IDENT CLOSE_BRACKET { $$ = PrintVarCb::create($3); }
+output_stat : PRINT OPEN_BRACKET IDENT CLOSE_BRACKET { $$ = PrintVarCb::create($3); free((char*) $3); }
             | PRINT OPEN_BRACKET str_expr CLOSE_BRACKET { $$ = PrintExprCb<string>::create($3); }
             | PRINT OPEN_BRACKET num_expr CLOSE_BRACKET { $$ = PrintExprCb<number>::create($3); }
             | PRINT OPEN_BRACKET CLOSE_BRACKET { $$ = PrintNewLineCb::create(); }

@@ -60,8 +60,8 @@ BOOL (true|false)
 
 ":=" { return ASSIGN; }
 
-"BEGIN" { return BEGIN_INSTRUCTION; }
-"END"   { return END_INSTRUCTION; }
+"begin" { return BEGIN_INSTRUCTION; }
+"end"   { return END_INSTRUCTION; }
 
 ";" { return LINE_END; }
 
