@@ -1,6 +1,6 @@
 default:
-	flex -l spec.l
-	bison -dv parser.y 
+	flex -l scanner-specification.l
+	bison -dv parser.y
 	g++ -std=c++2a parser.tab.c lex.yy.c -lfl -o interpreter
 
 clean:

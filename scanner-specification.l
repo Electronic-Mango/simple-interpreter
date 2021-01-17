@@ -5,6 +5,8 @@
     #include "parser.tab.h"
 
     extern int yylex();
+
+    int lineNumber = 0;
 %}
 
 %option noyywrap
@@ -58,8 +60,8 @@ BOOL (true|false)
 
 ":=" { return ASSIGN; }
 
-"begin" { return BEGIN_INSTRUCTION; }
-"end"   { return END_INSTRUCTION; }
+"BEGIN" { return BEGIN_INSTRUCTION; }
+"END"   { return END_INSTRUCTION; }
 
 ";" { return LINE_END; }
 
@@ -87,6 +89,8 @@ BOOL (true|false)
     return IDENT;
 }
 
-[ \t\n] ;
+[\n] { ++lineNumber; }
+
+[ \t] ;
 
 %%

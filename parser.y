@@ -1,24 +1,26 @@
 %{
-    #include <cstdio>
     #include <iostream>
     #include <cstring>
-    #include <map>
-    #include <set>
     #include <functional>
-    #include <memory>
     #include "functors.hh"
+    #include "variables.hh"
+    #include "types.hh"
 
     using namespace std;
 
     extern FILE* yyin;
     extern int yylex();
     extern int yyparse();
-    void yyerror(cstring s);
+
+    extern int lineNumber;
+
+    void yyerror(cstring error);
 %}
 
 %code requires {
-    #include <functional>
     #include "functors.hh"
+    #include "variables.hh"
+    #include "types.hh"
     using namespace std;
 }
 
@@ -27,6 +29,9 @@
     cstring string_value;
     bool bool_value;
     action* statement;
+    valueEval<number>* numEval;
+    valueEval<string>* strEval;
+    valueEval<bool>* boolEval;
 }
 
 %token <integer_value> NUM
@@ -40,29 +45,21 @@
 %token STR_EQ STR_NOT_EQ
 
 %token OPEN_BRACKET CLOSE_BRACKET COMMA
-
-%token LENGTH POSITION SUBSTRING CONCATENATE
-
-%token READINT READSTR
-
 %token LINE_END
 
-%token IF THEN ELSE
-
-%token WHILE DO
-
-%token ASSIGN
-
-%token PRINT
+%token LENGTH POSITION SUBSTRING CONCATENATE
+%token READINT READSTR
 
 %token BEGIN_INSTRUCTION END_INSTRUCTION
-
+%token IF THEN ELSE
+%token WHILE DO
+%token ASSIGN
+%token PRINT
 %token EXIT
 
-%type <integer_value> num_expr
-%type <string_value> str_expr
-%type <bool_value> bool_expr
-
+%type <numEval> num_expr
+%type <strEval> str_expr
+%type <boolEval> bool_expr
 %type <statement> instruction
 %type <statement> simple_instruction
 %type <statement> output_stat
@@ -74,53 +71,149 @@
 
 %%
 
-num_expr : NUM
-         | IDENT { $$ = VariableContainer::getVarNum($1); }
-         | READINT { cin >> $$; }
-         | MINUS num_expr { $$ = -$2; } // -1+2 jest traktowane jako -(1+2)
-         | num_expr PLUS num_expr { $$ = $1 + $3; }
-         | num_expr MINUS num_expr { $$ = $1 - $3; }
-         | num_expr MULT num_expr { $$ = $1 * $3; }
-         | num_expr DIV num_expr { $$ = $1 / $3; }
-         | num_expr MODULO num_expr { $$ = $1 % $3; }
-         | OPEN_BRACKET num_expr CLOSE_BRACKET  { $$ = $2; }
-         | LENGTH OPEN_BRACKET str_expr CLOSE_BRACKET { $$ = string($3).size(); }
+num_expr : NUM {
+               auto val = $1;
+               $$ = ExprEvalCb<number>::create([=](){ return val; });
+           }
+         | IDENT {
+               auto val = $1;
+               $$ = ExprEvalCb<number>::create([=](){ return VariableContainer::getVarNum(val); });
+           }
+         | READINT {
+               $$ = ExprEvalCb<number>::create([=](){
+                   number input;
+                   cin >> input;
+                   return input;
+               });
+           }
+         | MINUS num_expr {
+               auto numEval = *$2;
+               $$ = ExprEvalCb<number>::create([=](){ return numEval() * -1; });
+           }
+         | num_expr PLUS num_expr {
+               auto numEval1 = *$1; auto numEval2 = *$3;
+               $$ = ExprEvalCb<number>::create([=](){ return numEval1() + numEval2(); });
+           }
+         | num_expr MINUS num_expr {
+               auto numEval1 = *$1; auto numEval2 = *$3;
+               $$ = ExprEvalCb<number>::create([=](){ return numEval1() - numEval2(); });
+           }
+         | num_expr MULT num_expr {
+               auto numEval1 = *$1; auto numEval2 = *$3;
+               $$ = ExprEvalCb<number>::create([=](){ return numEval1() * numEval2(); });
+           }
+         | num_expr DIV num_expr {
+               auto numEval1 = *$1; auto numEval2 = *$3;
+               $$ = ExprEvalCb<number>::create([=](){ return numEval1() / numEval2(); });
+           }
+         | num_expr MODULO num_expr {
+               auto numEval1 = *$1; auto numEval2 = *$3;
+               $$ = ExprEvalCb<number>::create([=](){ return numEval1() % numEval2(); });
+           }
+         | OPEN_BRACKET num_expr CLOSE_BRACKET {
+               auto numEval = *$2;
+               $$ = ExprEvalCb<number>::create([=](){ return numEval(); });
+           }
+         | LENGTH OPEN_BRACKET str_expr CLOSE_BRACKET {
+               auto strEval = *$3;
+               $$ = ExprEvalCb<number>::create([=](){ return strEval().size(); });
+           }
          | POSITION OPEN_BRACKET str_expr COMMA str_expr CLOSE_BRACKET {
-               auto result = string($3).find($5);
-               $$ = result == string::npos ? 0 : result + 1;
+               auto strEval1 = *$3; auto strEval2 = *$5;
+               $$ = ExprEvalCb<number>::create([=](){
+                   auto result = strEval1().find(strEval2());
+                   return result == string::npos ? 0 : result + 1;
+               });
            }
          ;
 
-str_expr : STRING
-         | IDENT { $$ = VariableContainer::getVarStr($1); }
+str_expr : STRING {
+           auto val = string($1);
+           $$ = ExprEvalCb<string>::create([=](){ return val; });
+       }
+         | IDENT {
+               auto val = string($1);
+               $$ = ExprEvalCb<string>::create([=](){ return VariableContainer::getVarStr(val); });
+           }
          | READSTR {
-               string input;
-               cin >> input;
-               $$ = strdup(input.c_str());
+               $$ = ExprEvalCb<string>::create([=](){
+                   string input;
+                   getline(cin, input);
+                   return input;
+               });
            }
-         | CONCATENATE OPEN_BRACKET str_expr COMMA str_expr CLOSE_BRACKET { $$ = string($3).append(string($5)).c_str(); }
+         | CONCATENATE OPEN_BRACKET str_expr COMMA str_expr CLOSE_BRACKET {
+               auto strEval1 = *$3; auto strEval2 = *$5;
+               $$ = ExprEvalCb<string>::create([=](){
+                  string str1 = strEval1();
+                  string str2 = strEval2();
+                  return str1.append(str2);
+               });
+           }
          | SUBSTRING OPEN_BRACKET str_expr COMMA num_expr COMMA num_expr CLOSE_BRACKET {
-               auto input = string($3);
-               auto position = $5 - 1;
-               auto length = $7;
-               if (position < 0 || position >= input.size()) $$ = "";
-               else $$ = input.substr(position, length).c_str();
+               auto valEval = *$3; auto posEval = *$5; auto lenEval = *$7;
+               $$ = ExprEvalCb<string>::create([=](){
+                   auto input = string(valEval());
+                   auto position = posEval() - 1;
+                   auto length = lenEval();
+                   if (position < 0 || position >= input.size()) return string();
+                   else return input.substr(position, length);
+               });
            }
          ;
 
-bool_expr : BOOL
-          | OPEN_BRACKET bool_expr CLOSE_BRACKET { $$ = $2; }
-          | NOT bool_expr { $$ = !$2; }
-          | bool_expr AND bool_expr { $$ = $1 && $3; }
-          | bool_expr OR bool_expr { $$ = $1 || $3; }
-          | num_expr NUM_EQ num_expr { $$ = $1 == $3; }
-          | num_expr LESS num_expr { $$ = $1 < $3; }
-          | num_expr LESS_EQ num_expr { $$ = $1 <= $3; }
-          | num_expr GREATER num_expr { $$ = $1 > $3; }
-          | num_expr GREATER_EQ num_expr { $$ = $1 >= $3; }
-          | num_expr NUM_NOT_EQ num_expr { $$ = $1 != $3; }
-          | str_expr STR_EQ str_expr { $$ = string($1) == string($3); }
-          | str_expr STR_NOT_EQ str_expr { $$ = string($1) != string($3); }
+bool_expr : BOOL {
+                auto val = $1;
+                $$ = ExprEvalCb<bool>::create([=](){ return val; });
+            }
+          | OPEN_BRACKET bool_expr CLOSE_BRACKET {
+                auto boolEval = *$2;
+                $$ = ExprEvalCb<bool>::create([=](){ return boolEval(); });
+            }
+          | NOT bool_expr {
+                auto boolEval = *$2;
+                $$ = ExprEvalCb<bool>::create([=](){ return !(boolEval()); });
+            }
+          | bool_expr AND bool_expr {
+                auto boolEval1 = *$1; auto boolEval2 = *$3;
+                $$ = ExprEvalCb<bool>::create([=](){ return boolEval1() && boolEval2(); });
+            }
+          | bool_expr OR bool_expr {
+                auto boolEval1 = *$1; auto boolEval2 = *$3;
+                $$ = ExprEvalCb<bool>::create([=](){ return boolEval1() || boolEval2(); });
+            }
+          | num_expr NUM_EQ num_expr {
+                auto numEval1 = *$1; auto numEval2 = *$3;
+                $$ = ExprEvalCb<bool>::create([=](){ return numEval1() == numEval2(); });
+            }
+          | num_expr LESS num_expr {
+                auto numEval1 = *$1; auto numEval2 = *$3;
+                $$ = ExprEvalCb<bool>::create([=](){ return numEval1() < numEval2(); });
+            }
+          | num_expr LESS_EQ num_expr {
+                auto numEval1 = *$1; auto numEval2 = *$3;
+                $$ = ExprEvalCb<bool>::create([=](){ return numEval1() <= numEval2(); });
+            }
+          | num_expr GREATER num_expr {
+                auto numEval1 = *$1; auto numEval2 = *$3;
+                $$ = ExprEvalCb<bool>::create([=](){ return numEval1() > numEval2(); });
+            }
+          | num_expr GREATER_EQ num_expr {
+                auto numEval1 = *$1; auto numEval2 = *$3;
+                $$ = ExprEvalCb<bool>::create([=](){ return numEval1() >= numEval2(); });
+            }
+          | num_expr NUM_NOT_EQ num_expr {
+                auto numEval1 = *$1; auto numEval2 = *$3;
+                $$ = ExprEvalCb<bool>::create([=](){ return numEval1() != numEval2(); });
+            }
+          | str_expr STR_EQ str_expr {
+                auto strEval1 = *$1; auto strEval2 = *$3;
+                $$ = ExprEvalCb<bool>::create([=](){ return strEval1() == strEval2(); });
+            }
+          | str_expr STR_NOT_EQ str_expr {
+                auto strEval1 = *$1; auto strEval2 = *$3;
+                $$ = ExprEvalCb<bool>::create([=](){ return strEval1() != strEval2(); });
+            }
           ;
 
 simple_instruction : BEGIN_INSTRUCTION instruction END_INSTRUCTION { $$ = $2; }
@@ -128,39 +221,29 @@ simple_instruction : BEGIN_INSTRUCTION instruction END_INSTRUCTION { $$ = $2; }
                    | if_stat { $$ = $1; }
                    | while_stat { $$ = $1; }
                    | output_stat { $$ = $1; }
-                   | EXIT { return 0; }
+                   | EXIT { $$ = ExitCb::create(); }
                    ;
 
-instruction : instruction LINE_END simple_instruction { $$ = CompoundInstrCallback::create($1, $3); }
-            | simple_instruction { $$ = $1; }
+instruction : instruction simple_instruction LINE_END { $$ = CompoundInstrCb::create($1, $2); }
+            | simple_instruction LINE_END { $$ = $1; }
             ;
 
-assign_stat : IDENT ASSIGN num_expr { $$ = AssignVarCallback<number>::create($1, $3); }
-            | IDENT ASSIGN str_expr { $$ = AssignVarCallback<cstring>::create($1, $3); }
+assign_stat : IDENT ASSIGN num_expr { $$ = AssignVarCb<number>::create($1, $3); }
+            | IDENT ASSIGN str_expr { $$ = AssignVarCb<string>::create($1, $3); }
             ;
 
-if_stat : IF bool_expr THEN simple_instruction { $$ = IfCallback::create($2, $4, nullptr); }
-        | IF bool_expr THEN simple_instruction ELSE simple_instruction {
-              $$ = IfCallback::create($2, $4, $6);
-          }
+if_stat : IF bool_expr THEN simple_instruction { $$ = IfCb::create($2, $4, nullptr); }
+        | IF bool_expr THEN simple_instruction ELSE simple_instruction { $$ = IfCb::create($2, $4, $6); }
         ;
 
-while_stat : WHILE bool_expr DO simple_instruction { $$ = WhileCallback::create($2, $4); }
-           | DO simple_instruction WHILE bool_expr { $$ = DoWhileCallback::create($2, $4); }
+while_stat : WHILE bool_expr DO simple_instruction { $$ = WhileCb::create($2, $4); }
+           | DO simple_instruction WHILE bool_expr { $$ = DoWhileCb::create($2, $4); }
            ;
 
-output_stat : PRINT OPEN_BRACKET IDENT CLOSE_BRACKET {
-                  $$ = PrintVarCallback::create($3);
-              }
-            | PRINT OPEN_BRACKET num_expr CLOSE_BRACKET {
-                  $$ = PrintExprCallback<number>::create($3);
-              }
-            | PRINT OPEN_BRACKET str_expr CLOSE_BRACKET {
-                  $$ = PrintExprCallback<string>::create($3);
-              }
-            | PRINT OPEN_BRACKET CLOSE_BRACKET {
-                  $$ = PrintExprCallback<string>::create("");
-              }
+output_stat : PRINT OPEN_BRACKET IDENT CLOSE_BRACKET { $$ = PrintVarCb::create($3); }
+            | PRINT OPEN_BRACKET str_expr CLOSE_BRACKET { $$ = PrintExprCb<string>::create($3); }
+            | PRINT OPEN_BRACKET num_expr CLOSE_BRACKET { $$ = PrintExprCb<number>::create($3); }
+            | PRINT OPEN_BRACKET CLOSE_BRACKET { $$ = PrintNewLineCb::create(); }
             ;
 
 program : instruction { (*$1)(); }
@@ -183,7 +266,8 @@ int main(int argc, char* argv[]) {
     } while (!feof(yyin));
 }
 
-void yyerror(cstring s) {
-    cout << "Błąd parsowania: " << s << endl;
+void yyerror(cstring error) {
+    cout << "Błąd parsowania: " << error << endl;
+    cout << "W linii: " << lineNumber + 1 << endl;
     exit(-1);
 }
