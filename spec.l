@@ -2,10 +2,7 @@
     #include <cstdio>
     #include <iostream>
     #include <cstring>
-
-    using namespace std;
-
-	#include "parser.tab.h"
+    #include "parser.tab.h"
 
     extern int yylex();
 %}

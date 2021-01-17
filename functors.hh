@@ -60,22 +60,19 @@ private:
 };
 
 template <class T>
-struct ExprPrinter {
-    T _value;
-    action _printerFunction;
-
+class ExprPrinter {
+public:
     static action* preparePrinterFuncPtr(T value) {
         auto printer = new ExprPrinter<T>(value);
-        return printer->printerFunctionPtr();
+        return &(printer->_printerFunction);
     }
 
-    ExprPrinter(T value) : _value(value) {
-        _printerFunction = [this](){ cout << _value << endl; };
+private:
+    ExprPrinter(T value) {
+        _printerFunction = [value](){ cout << value << endl; };
     }
 
-    action* printerFunctionPtr() {
-        return &_printerFunction;
-    }
+    action _printerFunction;
 };
 
 class VariablePrinter {
@@ -87,7 +84,7 @@ public:
 
 private:
     VariablePrinter(string name) {
-        _printerFunction = [=](){
+        _printerFunction = [name](){
             VariableContainer::printVar(name);
         };
     }
@@ -96,72 +93,58 @@ private:
 };
 
 template <class T>
-struct Assigner {
-    string _varName;
-    T _varValue;
-    action _variableAssigningFunction;
-
+class Assigner {
+public:
     static action* prepareAssigner(string varName, T varValue) {
         auto assigner = new Assigner<T>(varName, varValue);
-        return assigner->variableAssigningFunctionPtr();
+        return &(assigner->_variableAssigningFunction);
     }
 
-    Assigner(string varName, T varValue) : _varName(varName), _varValue(varValue) {
-        _variableAssigningFunction = [this]() {
-            VariableContainer::addVar(_varName, _varValue);
+private:
+    Assigner(string varName, T varValue) {
+        _variableAssigningFunction = [varName, varValue]() {
+            VariableContainer::addVar(varName, varValue);
         };
     }
 
-    action* variableAssigningFunctionPtr() {
-        return &_variableAssigningFunction;
-    }
-    
+    action _variableAssigningFunction;
 };
 
-struct IfHandler {
-    bool _condition;
-    action* _trueFunction;
-    action* _falseFunction;
-    action _ifFunction;
-
+class IfHandler {
+public:
     static action* prepareIfHandler(bool condition, action* trueFunction, action* falseFunction) {
         auto handler = new IfHandler(condition, trueFunction, falseFunction);
-        return handler->ifFunctionPtr();
+        return &(handler->_ifFunction);
     }
-    
-    IfHandler(bool condition, action* trueFunction, action* falseFunction) : _condition(condition), _trueFunction(trueFunction), _falseFunction(falseFunction) {
-        _ifFunction = [this]() {
-            if (_condition) {
-                (*_trueFunction)();
+
+private:
+    IfHandler(bool condition, action* trueFunction, action* falseFunction) {
+        _ifFunction = [condition, trueFunction, falseFunction]() {
+            if (condition) {
+                (*trueFunction)();
             } else {
-                if (_falseFunction != nullptr) (*_falseFunction)();
+                if (falseFunction != nullptr) (*falseFunction)();
             }
         };
     }
 
-    action* ifFunctionPtr() {
-        return &_ifFunction;
-    }
+    action _ifFunction;
 };
 
-struct CompoundInstrHandler {
-    action* _firstAction;
-    action* _secondAction;
-    action _compoundAction;
-
+class CompoundInstrHandler {
+public:
     static action* prepareCompoundInstrHandler(action* firstAction, action* secondAction) {
         auto handler = new CompoundInstrHandler(firstAction, secondAction);
-        return handler->compoundActionPtr();
+        return &(handler->_compoundAction);
     }
-    
-    CompoundInstrHandler(action* firstAction, action* secondAction) : _firstAction(firstAction), _secondAction(secondAction) {
-        _compoundAction = [this]() {
-            (*_firstAction)();
-            (*_secondAction)();
+
+private:
+    CompoundInstrHandler(action* firstAction, action* secondAction) {
+        _compoundAction = [firstAction, secondAction]() {
+            (*firstAction)();
+            (*secondAction)();
         };
     }
 
-    action* compoundActionPtr() {
-        return &_compoundAction;
-    }
+    action _compoundAction;
 };
