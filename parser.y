@@ -4,17 +4,23 @@
     #include <cstring>
     #include <map>
     #include <set>
+    #include <functional>
+    #include <memory>
 
     using namespace std;
+
+	typedef signed long int number;
+	typedef const char* cstring;
+    typedef function<void()> action;
 
     extern FILE* yyin;
     extern int yylex();
     extern int yyparse();
-    void yyerror(const char *s);
+    void yyerror(cstring s);
 
     set<string> variableNames;
-    map<string, int> numVariables;
-    map<string, const char *> strVariables;
+    map<string, number> numVariables;
+    map<string, cstring> strVariables;
 
     void handleVariableName(string variableName) {
         if (variableNames.contains(variableName)) {
@@ -24,12 +30,140 @@
             variableNames.insert(variableName);
         }
     }
+
+    template <class T>
+    struct ExprPrinter {
+        T _value;
+        action _printerFunction;
+
+        static action* preparePrinterFuncPtr(T value) {
+            auto printer = new ExprPrinter<T>(value);
+            return printer->printerFunctionPtr();
+        }
+
+        ExprPrinter(T value) : _value(value) {
+            _printerFunction = [this](){ cout << _value << endl; };
+        }
+
+        action* printerFunctionPtr() {
+            return &_printerFunction;
+        }
+    };
+
+    struct VariablePrinter {
+        string _name;
+        action _printerFunction;
+
+        static action* prepareVarPrinterFuncPtr(string name) {
+            auto printer = new VariablePrinter(name);
+            return printer->printerFunctionPtr();
+        }
+
+        VariablePrinter(string name) : _name(name) {
+            _printerFunction = [this](){
+                if (strVariables.contains(_name)) {
+                    cout << strVariables.at(_name) << endl;
+                } else if (numVariables.contains(_name)) {
+                    cout << numVariables.at(_name) << endl;
+                } else {
+                    cout << "" << endl;
+                }
+            };
+        }
+
+        action* printerFunctionPtr() {
+            return &_printerFunction;
+        }
+    };
+    
+    template <class T>
+    struct Assigner {
+        string _varName;
+        T _varValue;
+        map<string, T>* _varCollection;
+        action _variableAssigningFunction;
+
+        static action* prepareAssigner(string varName, T varValue, map<string, T>* varCollection) {
+            auto assigner = new Assigner<T>(varName, varValue, varCollection);
+            return assigner->variableAssigningFunctionPtr();
+        }
+        
+        Assigner(string varName, T varValue, map<string, T>* varCollection) : _varName(varName), _varValue(varValue), _varCollection(varCollection) {
+            _variableAssigningFunction = [this]() {
+                handleVariableName(_varName);
+                _varCollection->insert_or_assign(_varName, _varValue);
+            };
+        }
+
+        action* variableAssigningFunctionPtr() {
+            return &_variableAssigningFunction;
+        }
+        
+    };
+    
+    struct IfHandler {
+        bool _condition;
+        action* _trueFunction;
+        action* _falseFunction;
+        action _ifFunction;
+
+        static action* prepareIfHandler(bool condition, action* trueFunction, action* falseFunction) {
+            auto handler = new IfHandler(condition, trueFunction, falseFunction);
+            return handler->ifFunctionPtr();
+        }
+        
+        IfHandler(bool condition, action* trueFunction, action* falseFunction) : _condition(condition), _trueFunction(trueFunction), _falseFunction(falseFunction) {
+            _ifFunction = [this]() {
+                if (_condition) {
+                    (*_trueFunction)();
+                } else {
+                    if (_falseFunction != nullptr) (*_falseFunction)();
+                }
+            };
+        }
+
+        action* ifFunctionPtr() {
+            return &_ifFunction;
+        }
+    };
+    
+    struct CompoundInstrHandler {
+        action* _firstAction;
+        action* _secondAction;
+        action _compoundAction;
+
+        static action* prepareCompoundInstrHandler(action* firstAction, action* secondAction) {
+            auto handler = new CompoundInstrHandler(firstAction, secondAction);
+            return handler->compoundActionPtr();
+        }
+        
+        CompoundInstrHandler(action* firstAction, action* secondAction) : _firstAction(firstAction), _secondAction(secondAction) {
+            _compoundAction = [this]() {
+                (*_firstAction)();
+                (*_secondAction)();
+            };
+        }
+
+        action* compoundActionPtr() {
+            return &_compoundAction;
+        }
+    };
+	
 %}
 
+%code requires {
+	#include <functional>
+	typedef signed long int number;
+	typedef const char* cstring;
+    typedef function<void()> action;
+	using namespace std;
+}
+
 %union {
-    signed long int integer_value;
-    const char* string_value;
+    number integer_value;
+    cstring string_value;
     bool bool_value;
+    action* statement;
 }
 
 %token <integer_value> NUM 
@@ -66,6 +200,13 @@
 %type <string_value> str_expr
 %type <bool_value> bool_expr
 
+%type <statement> instruction
+%type <statement> simple_instruction
+%type <statement> output_stat
+%type <statement> assign_stat
+%type <statement> if_stat
+%type <statement> while_stat
+
 %start program
 
 %%
@@ -82,26 +223,26 @@ num_expr : NUM
          | OPEN_BRACKET num_expr CLOSE_BRACKET  { $$ = $2; }
          | LENGTH OPEN_BRACKET str_expr CLOSE_BRACKET { $$ = string($3).size(); } 
          | POSITION OPEN_BRACKET str_expr COMMA str_expr CLOSE_BRACKET {
-             auto result = string($3).find($5);
-             $$ = result == string::npos ? 0 : result + 1;
-         }
+               auto result = string($3).find($5);
+               $$ = result == string::npos ? 0 : result + 1;
+           }
          ;
 
 str_expr : STRING
          | IDENT { $$ = strVariables.contains($1) ? strVariables.at($1) : ""; }
          | READSTR {
-             string input;
-             cin >> input;
-             $$ = strdup(input.c_str());
-         }
+               string input;
+               cin >> input;
+               $$ = strdup(input.c_str());
+           }
          | CONCATENATE OPEN_BRACKET str_expr COMMA str_expr CLOSE_BRACKET { $$ = string($3).append(string($5)).c_str(); }
          | SUBSTRING OPEN_BRACKET str_expr COMMA num_expr COMMA num_expr CLOSE_BRACKET {
-             auto input = string($3);
-             auto position = $5 - 1;
-             auto length = $7;
-             if (position < 0 || position >= input.size()) $$ = "";
-             else $$ = input.substr(position, length).c_str();
-         }
+               auto input = string($3);
+               auto position = $5 - 1;
+               auto length = $7;
+               if (position < 0 || position >= input.size()) $$ = "";
+               else $$ = input.substr(position, length).c_str();
+           }
          ;
 
 bool_expr : BOOL
@@ -119,30 +260,26 @@ bool_expr : BOOL
           | str_expr STR_NOT_EQ str_expr { $$ = string($1) != string($3); }
           ;
 
-simple_instruction : BEGIN_INSTRUCTION instruction END_INSTRUCTION
-                   | assign_stat
-                   | if_stat
-                   | while_stat
-                   | output_stat
+simple_instruction : BEGIN_INSTRUCTION instruction END_INSTRUCTION { $$ = $2; }
+                   | assign_stat { $$ = $1; }
+                   | if_stat { $$ = $1; }
+                   | while_stat { $$ = $1; }
+                   | output_stat { $$ = $1; }
                    | EXIT { return 0; }
                    ;
 
-instruction : instruction LINE_END simple_instruction
-            | simple_instruction
+instruction : instruction LINE_END simple_instruction { $$ = CompoundInstrHandler::prepareCompoundInstrHandler($1, $3); }
+            | simple_instruction { $$ = $1; }
             ;
 
-assign_stat : IDENT ASSIGN num_expr {
-                handleVariableName($1);
-                numVariables.insert_or_assign($1, $3);
-            }
-            | IDENT ASSIGN str_expr {
-                handleVariableName($1);
-                strVariables.insert_or_assign($1, $3);
-            }
+assign_stat : IDENT ASSIGN num_expr { $$ = Assigner<number>::prepareAssigner($1, $3, &numVariables); }
+            | IDENT ASSIGN str_expr { $$ = Assigner<cstring>::prepareAssigner($1, $3, &strVariables); }
             ;
 
-if_stat : IF bool_expr THEN simple_instruction
-        | IF bool_expr THEN simple_instruction ELSE simple_instruction
+if_stat : IF bool_expr THEN simple_instruction { $$ = IfHandler::prepareIfHandler($2, $4, nullptr); }
+        | IF bool_expr THEN simple_instruction ELSE simple_instruction {
+              $$ = IfHandler::prepareIfHandler($2, $4, $6);
+          }
         ;
 
 while_stat : WHILE bool_expr DO simple_instruction
@@ -150,17 +287,20 @@ while_stat : WHILE bool_expr DO simple_instruction
            ;
 
 output_stat : PRINT OPEN_BRACKET IDENT CLOSE_BRACKET {
-                  if (strVariables.contains($3)) cout << strVariables.at($3) << endl;
-                  else if (numVariables.contains($3)) cout << numVariables.at($3) << endl;
-                  else cout << "" << endl;
+                  $$ = VariablePrinter::prepareVarPrinterFuncPtr($3);
               }
-              | PRINT OPEN_BRACKET num_expr CLOSE_BRACKET { cout << $3 << endl; }
-              | PRINT OPEN_BRACKET str_expr CLOSE_BRACKET { cout << $3 << endl; }
-              | PRINT OPEN_BRACKET bool_expr CLOSE_BRACKET { cout << boolalpha << $3 << endl; }
-              | PRINT OPEN_BRACKET CLOSE_BRACKET { cout << endl; }
-              ;
+            | PRINT OPEN_BRACKET num_expr CLOSE_BRACKET {
+                  $$ = ExprPrinter<number>::preparePrinterFuncPtr($3);
+              }
+            | PRINT OPEN_BRACKET str_expr CLOSE_BRACKET {
+                  $$ = ExprPrinter<string>::preparePrinterFuncPtr($3);
+              }
+            | PRINT OPEN_BRACKET CLOSE_BRACKET {
+                  $$ = ExprPrinter<string>::preparePrinterFuncPtr("");
+              }
+            ;
 
-program : instruction
+program : instruction { (*$1)(); }
         ;
 
 %%
@@ -180,7 +320,7 @@ int main(int argc, char* argv[]) {
     } while (!feof(yyin));
 }
 
-void yyerror(const char *s) {
+void yyerror(cstring s) {
     cout << "Błąd parsowania: " << s << endl;
     exit(-1);
 }

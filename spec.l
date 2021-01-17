@@ -1,10 +1,11 @@
 %{
     #include <cstdio>
     #include <iostream>
-    #include <cstring>
-	#include "parser.tab.h"
+    #include <cstring>\
 
     using namespace std;
+
+	#include "parser.tab.h"
 
     extern int yylex();
 %}
@@ -12,7 +13,7 @@
 %option noyywrap
 
 NUM [0-9]+
-STRING \".*\"
+STRING \"[A-Za-z0-9]*\"
 IDENT [A-Za-z][A-Za-z0-9]*
 BOOL (true|false)
 
