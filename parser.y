@@ -91,28 +91,40 @@ num_expr : NUM {
            }
          | num_expr PLUS num_expr {
                valueEval<number> numEval1 = *$1;
-			   valueEval<number> numEval2 = *$3;
+               valueEval<number> numEval2 = *$3;
                $$ = ExprEvalCb<number>::create([=](){ return numEval1() + numEval2(); });
            }
          | num_expr MINUS num_expr {
                valueEval<number> numEval1 = *$1;
-			   valueEval<number> numEval2 = *$3;
+               valueEval<number> numEval2 = *$3;
                $$ = ExprEvalCb<number>::create([=](){ return numEval1() - numEval2(); });
            }
          | num_expr MULT num_expr {
                valueEval<number> numEval1 = *$1;
-			   valueEval<number> numEval2 = *$3;
+               valueEval<number> numEval2 = *$3;
                $$ = ExprEvalCb<number>::create([=](){ return numEval1() * numEval2(); });
            }
          | num_expr DIV num_expr {
                valueEval<number> numEval1 = *$1;
-			   valueEval<number> numEval2 = *$3;
-               $$ = ExprEvalCb<number>::create([=](){ return numEval1() / numEval2(); });
+               valueEval<number> numEval2 = *$3;
+               $$ = ExprEvalCb<number>::create([=](){
+                   if (numEval2() == 0 ) {
+                       cout << "Nie dziel przez zero!" << endl;
+                       exit(-1);
+                   }
+                   return numEval1() / numEval2();
+               });
            }
          | num_expr MODULO num_expr {
                valueEval<number> numEval1 = *$1;
-			   valueEval<number> numEval2 = *$3;
-               $$ = ExprEvalCb<number>::create([=](){ return numEval1() % numEval2(); });
+               valueEval<number> numEval2 = *$3;
+               $$ = ExprEvalCb<number>::create([=](){
+                   if (numEval2() == 0 ) {
+                       cout << "Reszta z dzielenia nie może przyjąc 0 jako drugi argument!" << endl;
+                       exit(-1);
+                   }
+                   return numEval1() % numEval2();
+               });
            }
          | OPEN_BRACKET num_expr CLOSE_BRACKET {
                valueEval<number> numEval = *$2;
@@ -124,7 +136,7 @@ num_expr : NUM {
            }
          | POSITION OPEN_BRACKET str_expr COMMA str_expr CLOSE_BRACKET {
                valueEval<string> strEval1 = *$3;
-			   valueEval<string> strEval2 = *$5;
+               valueEval<string> strEval2 = *$5;
                $$ = ExprEvalCb<number>::create([=](){
                    size_t result = strEval1().find(strEval2());
                    return result == string::npos ? 0 : result + 1;
@@ -151,7 +163,7 @@ str_expr : STRING {
            }
          | CONCATENATE OPEN_BRACKET str_expr COMMA str_expr CLOSE_BRACKET {
                valueEval<string> strEval1 = *$3;
-			   valueEval<string> strEval2 = *$5;
+               valueEval<string> strEval2 = *$5;
                $$ = ExprEvalCb<string>::create([=](){
                   string str1 = strEval1();
                   string str2 = strEval2();
@@ -160,8 +172,8 @@ str_expr : STRING {
            }
          | SUBSTRING OPEN_BRACKET str_expr COMMA num_expr COMMA num_expr CLOSE_BRACKET {
                valueEval<string> valEval = *$3;
-			   valueEval<number> posEval = *$5;
-			   valueEval<number> lenEval = *$7;
+               valueEval<number> posEval = *$5;
+               valueEval<number> lenEval = *$7;
                $$ = ExprEvalCb<string>::create([=](){
                    string input = valEval();
                    number position = posEval() - 1;
@@ -186,52 +198,52 @@ bool_expr : BOOL {
             }
           | bool_expr AND bool_expr {
                 valueEval<bool> boolEval1 = *$1;
-				valueEval<bool> boolEval2 = *$3;
+                valueEval<bool> boolEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return boolEval1() && boolEval2(); });
             }
           | bool_expr OR bool_expr {
                 valueEval<bool> boolEval1 = *$1;
-				valueEval<bool> boolEval2 = *$3;
+                valueEval<bool> boolEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return boolEval1() || boolEval2(); });
             }
           | num_expr NUM_EQ num_expr {
                 valueEval<number> numEval1 = *$1;
-				valueEval<number> numEval2 = *$3;
+                valueEval<number> numEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return numEval1() == numEval2(); });
             }
           | num_expr LESS num_expr {
                 valueEval<number> numEval1 = *$1;
-				valueEval<number> numEval2 = *$3;
+                valueEval<number> numEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return numEval1() < numEval2(); });
             }
           | num_expr LESS_EQ num_expr {
                 valueEval<number> numEval1 = *$1;
-				valueEval<number> numEval2 = *$3;
+                valueEval<number> numEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return numEval1() <= numEval2(); });
             }
           | num_expr GREATER num_expr {
                 valueEval<number> numEval1 = *$1;
-				valueEval<number> numEval2 = *$3;
+                valueEval<number> numEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return numEval1() > numEval2(); });
             }
           | num_expr GREATER_EQ num_expr {
                 valueEval<number> numEval1 = *$1;
-				valueEval<number> numEval2 = *$3;
+                valueEval<number> numEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return numEval1() >= numEval2(); });
             }
           | num_expr NUM_NOT_EQ num_expr {
                 valueEval<number> numEval1 = *$1;
-				valueEval<number> numEval2 = *$3;
+                valueEval<number> numEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return numEval1() != numEval2(); });
             }
           | str_expr STR_EQ str_expr {
                 valueEval<string> strEval1 = *$1;
-				valueEval<string> strEval2 = *$3;
+                valueEval<string> strEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return strEval1() == strEval2(); });
             }
           | str_expr STR_NOT_EQ str_expr {
                 valueEval<string> strEval1 = *$1;
-				valueEval<string> strEval2 = *$3;
+                valueEval<string> strEval2 = *$3;
                 $$ = ExprEvalCb<bool>::create([=](){ return strEval1() != strEval2(); });
             }
           ;
@@ -244,8 +256,8 @@ simple_instruction : BEGIN_INSTRUCTION instruction END_INSTRUCTION { $$ = $2; }
                    | EXIT { $$ = CbAction::create<ExitCb>(); }
                    ;
 
-instruction : instruction simple_instruction LINE_END { $$ = CbAction::create<CompoundInstrCb>($1, $2); }
-            | simple_instruction LINE_END { $$ = $1; }
+instruction : instruction LINE_END simple_instruction { $$ = CbAction::create<CompoundInstrCb>($1, $3); }
+            | simple_instruction { $$ = $1; }
             ;
 
 assign_stat : IDENT ASSIGN num_expr { $$ = CbAction::create<AssignVarCb<number>>($1, $3); free((char*) $1); }

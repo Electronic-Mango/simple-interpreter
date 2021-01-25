@@ -20,11 +20,25 @@ public:
     }
 
     static number getVarNum(string variableName) {
-        return _numVariables.contains(variableName) ? _numVariables.at(variableName) : 0;
+        if (_numVariables.contains(variableName)) {
+            return _numVariables.at(variableName);
+        } else if (!_strVariables.contains(variableName)) {
+            return 0;
+        } else {
+            cout << "Zmienna " << variableName << " jest stringiem, a nie liczbą!" << endl;
+            exit(-1);
+        }
     }
 
     static string getVarStr(string variableName) {
-        return _strVariables.contains(variableName) ? _strVariables.at(variableName) : "";
+        if (_strVariables.contains(variableName)) {
+            return _strVariables.at(variableName);
+        } else if (!_numVariables.contains(variableName)) {
+            return "";
+        } else {
+            cout << "Zmienna " << variableName << " jest liczbą, a nie stringiem!" << endl;
+            exit(-1);
+        }
     }
 
     static void printVar(string variableName) {

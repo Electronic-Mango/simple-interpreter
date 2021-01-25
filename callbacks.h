@@ -45,16 +45,16 @@ private:
 class CbAction : Callback {
 public:
     virtual ~CbAction() { }
-	
-	template<class T, class... Args>
-	static action* create(Args&& ... args) {
-		auto callback = new T(forward<Args>(args)...);
-		addToExtent(callback);
-		return &(callback->_action);
-	}
+
+    template<class T, class... Args>
+    static action* create(Args&& ... args) {
+        auto callback = new T(forward<Args>(args)...);
+        addToExtent(callback);
+        return &(callback->_action);
+    }
 
 protected:
-	action _action;
+    action _action;
 };
 
 class ExitCb : public CbAction {
