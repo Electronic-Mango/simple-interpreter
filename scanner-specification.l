@@ -12,8 +12,8 @@
 %option noyywrap
 
 NUM [0-9]+
-VALID_STRING_CHAR [A-Za-z0-9]
-INVALID_STRING_CHAR [^A-Za-z0-9"]
+VALID_STRING_CHAR [^"\n\r]
+INVALID_STRING_CHAR [\n\r]
 STRING {VALID_STRING_CHAR}*
 IDENT [A-Za-z][A-Za-z0-9]*
 BOOL (true|false)
@@ -86,9 +86,8 @@ BOOL (true|false)
     return STRING;
 }
 
-<STRING_MATCHING>({VALID_STRING_CHAR}*{INVALID_STRING_CHAR}+{VALID_STRING_CHAR}*)+ {
+<STRING_MATCHING>{INVALID_STRING_CHAR} {
     cout << "Błąd parsowania wartości typu string w linii: " << ++lineNumber << "!" << endl;
-    cout << "Nieoczekiwana wartość:" << endl << yytext << endl;
     exit(-1);
 }
 
