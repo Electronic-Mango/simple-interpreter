@@ -82,6 +82,10 @@ num_expr : NUM {
                $$ = ExprEvalCb<number>::create([=](){
                    number input;
                    cin >> input;
+                   if (cin.fail()) {
+                       cout << "Nie podano wartości liczbowej, lub przekroczono jej zakres!" << endl;
+                       exit(-1);
+                   }
                    return input;
                });
            }
