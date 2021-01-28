@@ -72,7 +72,7 @@ BOOL (true|false)
 "exit" { return EXIT; }
 
 {NUM} {
-    yylval.integer_value = atoi(yytext);
+    yylval.integer_value = strtol(yytext, nullptr, 10);
     return NUM;
 }
 
