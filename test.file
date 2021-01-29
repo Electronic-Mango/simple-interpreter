@@ -1,0 +1,16 @@
+a := 123;
+print("Wartość zmiennej a:");
+print(a);
+print("Podaj wartość zmiennej liczbowej b");
+b := readint;
+print("Podałeś wartość:");
+print(b);
+if (a > b) then
+    print("Podałeś miejszą wartość niż a!")
+else 
+begin
+    if (a < b) then
+        print("Podałeś większą wartość niż a!")
+    else
+        print("Podałeś tą samą wartość co a!")
+end
